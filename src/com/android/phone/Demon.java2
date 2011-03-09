@@ -1,18 +1,18 @@
-package com.android.phone;
+package com.mb.dewonkificator;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
-public class Demon extends Activity
+public class Dewonkificator extends Activity
 {
-	static final String LOGGING_TAG = "AudioHardwareQSD";
+	static final String LOGGING_TAG = "Dewonkificator";
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
-		startService(new Intent(this, DemonService.class));
+		startService(new Intent(this, DewonkificatorService.class));
 		this.finish();
 	}
 }
