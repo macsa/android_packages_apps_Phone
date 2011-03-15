@@ -223,6 +223,9 @@
     <string name="roaming_disable" msgid="1843417228755568110">"Establecer conexión con servicios de datos en itinerancia"</string>
     <string name="roaming_reenable_message" msgid="6973894869473170666">"Has perdido la conectividad de datos porque has dejado desactivada la itinerancia de datos de tu red doméstica."</string>
     <string name="roaming_warning" msgid="7820963598559553967">"¿Permitir itinerancia de datos? Los costes de itinerancia que deberás asumir pueden ser significativos."</string>
+    <string name="mvno_roaming">Itinerancia de datos Nacional</string>
+    <string name="mvno_roaming_summary">Esto le permitirá utilizar un proveedor de red diferente en su país.</string>
+    <string name="mvno_roaming_warning">Habilitar la itinerancia de datos en el mismo país que su proveedor de servicios? Algunos proveedores de redes virtuales requieren este ajuste para los datos de acceso. NO active esta opción si su proveedor cobra honorarios en el país de itinerancia! Este ajuste no tendrá efecto hasta que reinicie el teléfono o cambie a modo de avión y lo desactive.</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"Opciones GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"Opciones de CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Uso de datos"</string>
