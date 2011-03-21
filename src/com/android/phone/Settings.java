@@ -216,7 +216,7 @@ public class Settings extends PreferenceActivity implements DialogInterface.OnCl
         mButtonDataRoam = (CheckBoxPreference) prefSet.findPreference(BUTTON_ROAMING_KEY);
         mButtonMvnoDataRoam = (CheckBoxPreference) prefSet.findPreference(BUTTON_MVNO_ROAMING_KEY);
         mButtonMvnoDataRoam.setChecked(android.provider.Settings.System.getInt(getContentResolver(), 
-                android.provider.Settings.Secure.MVNO_ROAMING, 0) == 1);
+                android.provider.Settings.Secure.MVNO_ROAMING, 1) == 1);
         mButtonPreferredNetworkMode = (ListPreference) prefSet.findPreference(
                 BUTTON_PREFERED_NETWORK_MODE);
         mButtonDataUsage = prefSet.findPreference(BUTTON_DATA_USAGE_KEY);
