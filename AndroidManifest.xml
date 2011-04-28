@@ -70,11 +70,13 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"></uses-permission>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SHUTDOWN" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.BACKUP" />
     <uses-permission android:name="android.permission.USE_SIP" />
+
+<!--    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"></uses-permission>-->
 
     <!-- This tells the activity manager to not delay any of our activity
          start requests, even if they happen immediately after the user
@@ -443,14 +445,14 @@
                 <action android:name="com.android.internal.telephony.MODIFY_NETWORK_MODE" />
             </intent-filter>
         </receiver>
-		<service android:name=".DemonService"></service>
+		<!--<service android:name=".DemonService"></service>
  		<receiver android:name=".DemonBroadcastReceiver"
   			android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
   			<intent-filter>
    				<action android:name="android.intent.action.TIME_TICK"></action>
    				<action android:name="android.intent.action.BOOT_COMPLETED"></action>
   			</intent-filter>
- 		</receiver>
+ 		</receiver>-->
     </application>
       <permission android:name="com.android.phone.CHANGE_NETWORK_MODE"
         android:label="@string/per_change_mobile_network"
