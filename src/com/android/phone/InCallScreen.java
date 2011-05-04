@@ -40,6 +40,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.SystemProperties;
+import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
@@ -78,7 +79,7 @@ import java.util.List;
  * Phone app "in call" screen.
  */
 public class InCallScreen extends Activity
-        implements View.OnClickListener, View.OnTouchListener {
+        implements View.OnClickListener, View.OnTouchListener, View.OnLongClickListener {
     private static final String LOG_TAG = "InCallScreen";
 
     private static final boolean DBG =
@@ -174,7 +175,7 @@ public class InCallScreen extends Activity
 
     //following constants are used for OTA Call
     public static final String ACTION_SHOW_ACTIVATION =
-           "com.android.phone.InCallScreen.SHOW_ACTIVATION";
+            "com.android.phone.InCallScreen.SHOW_ACTIVATION";
     public static final String OTA_NUMBER = "*228";
     public static final String EXTRA_OTA_CALL = "android.phone.extra.OTA_CALL";
 
@@ -296,6 +297,7 @@ public class InCallScreen extends Activity
     private AlertDialog mWildPromptDialog;
     private AlertDialog mCallLostDialog;
     private AlertDialog mPausePromptDialog;
+    private AlertDialog mExitingECMDialog;
     // NOTE: if you add a new dialog here, be sure to add it to dismissAllDialogs() also.
 
     // TODO: If the Activity class ever provides an easy way to get the
@@ -306,6 +308,16 @@ public class InCallScreen extends Activity
     // For use with CDMA Pause/Wait dialogs
     private String mPostDialStrAfterPause;
     private boolean mPauseInProgress = false;
+
+    // Flag indicating whether or not we should bring up the Call Log when
+    // exiting the in-call UI due to the Phone becoming idle.  (This is
+    // true if the most recently disconnected Call was initiated by the
+    // user, or false if it was an incoming call.)
+    // This flag is used by delayedCleanupAfterDisconnect(), and is set by
+    // onDisconnect() (which is the only place that either posts a
+    // DELAYED_CLEANUP_AFTER_DISCONNECT event *or* calls
+    // delayedCleanupAfterDisconnect() directly.)
+    private boolean mShowCallLogAfterDisconnect;
 
     // Info about the most-recently-disconnected Connection, which is used
     // to determine what should happen when exiting the InCallScreen after a
@@ -521,6 +533,11 @@ public class InCallScreen extends Activity
             }
         };
 
+    private CallFeaturesSetting mSettings;
+    private boolean mForceTouch;
+
+    //Trackball Answer
+    Long mTrackballHitTime;
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -567,6 +584,47 @@ public class InCallScreen extends Activity
 
         initInCallScreen();
 
+        initDialPad();
+
+        registerForPhoneStates();
+
+        // No need to change wake state here; that happens in onResume() when we
+        // are actually displayed.
+
+        // Handle the Intent we were launched with, but only if this is the
+        // the very first time we're being launched (ie. NOT if we're being
+        // re-initialized after previously being shut down.)
+        // Once we're up and running, any future Intents we need
+        // to handle will come in via the onNewIntent() method.
+        if (icicle == null) {
+            if (DBG) log("onCreate(): this is our very first launch, checking intent...");
+
+            // Stash the result code from internalResolveIntent() in the
+            // mInCallInitialStatus field.  If it's an error code, we'll
+            // handle it in onResume().
+            mInCallInitialStatus = internalResolveIntent(getIntent());
+            if (DBG) log("onCreate(): mInCallInitialStatus = " + mInCallInitialStatus);
+            if (mInCallInitialStatus != InCallInitStatus.SUCCESS) {
+                Log.w(LOG_TAG, "onCreate: status " + mInCallInitialStatus
+                        + " from internalResolveIntent()");
+                // See onResume() for the actual error handling.
+            }
+        } else {
+            mInCallInitialStatus = InCallInitStatus.SUCCESS;
+        }
+
+        mSettings = CallFeaturesSetting.getInstance(android.preference.PreferenceManager.getDefaultSharedPreferences(this));
+        mForceTouch = mSettings.mForceTouch;
+        // The "touch lock overlay" feature is used only on devices that
+        // *don't* use a proximity sensor to turn the screen off while in-call.
+        // add by cytown: also turn off if force show the touch keyboard.
+        mUseTouchLockOverlay = !app.proximitySensorModeEnabled() && !mForceTouch;
+
+        Profiler.callScreenCreated();
+        if (DBG) log("onCreate(): exit");
+    }
+
+    private void initDialPad() {
         // Create the dtmf dialer.  The dialer view we use depends on the
         // current platform:
         //
@@ -602,40 +660,6 @@ public class InCallScreen extends Activity
         }
         // Finally, create the DTMFTwelveKeyDialer instance.
         mDialer = new DTMFTwelveKeyDialer(this, mDialerView, dialerDrawer);
-
-        registerForPhoneStates();
-
-        // No need to change wake state here; that happens in onResume() when we
-        // are actually displayed.
-
-        // Handle the Intent we were launched with, but only if this is the
-        // the very first time we're being launched (ie. NOT if we're being
-        // re-initialized after previously being shut down.)
-        // Once we're up and running, any future Intents we need
-        // to handle will come in via the onNewIntent() method.
-        if (icicle == null) {
-            if (DBG) log("onCreate(): this is our very first launch, checking intent...");
-
-            // Stash the result code from internalResolveIntent() in the
-            // mInCallInitialStatus field.  If it's an error code, we'll
-            // handle it in onResume().
-            mInCallInitialStatus = internalResolveIntent(getIntent());
-            if (DBG) log("onCreate(): mInCallInitialStatus = " + mInCallInitialStatus);
-            if (mInCallInitialStatus != InCallInitStatus.SUCCESS) {
-                Log.w(LOG_TAG, "onCreate: status " + mInCallInitialStatus
-                      + " from internalResolveIntent()");
-                // See onResume() for the actual error handling.
-            }
-        } else {
-            mInCallInitialStatus = InCallInitStatus.SUCCESS;
-        }
-
-        // The "touch lock overlay" feature is used only on devices that
-        // *don't* use a proximity sensor to turn the screen off while in-call.
-        mUseTouchLockOverlay = !app.proximitySensorModeEnabled();
-
-        Profiler.callScreenCreated();
-        if (DBG) log("onCreate(): exit");
     }
 
     /**
@@ -659,6 +683,14 @@ public class InCallScreen extends Activity
 
         final PhoneApp app = PhoneApp.getInstance();
 
+        // add by cytown: if mForceTouch changed, re-init dialpad.
+        if (mForceTouch != mSettings.mForceTouch) {
+            if (DBG) log("Force Touch setting changed, re-init dialpad");
+            mForceTouch = mSettings.mForceTouch;
+            mUseTouchLockOverlay = !app.proximitySensorModeEnabled() && !mForceTouch;
+            initDialPad();
+        }
+
         app.disableStatusBar();
 
         // Touch events are never considered "user activity" while the
@@ -668,7 +700,9 @@ public class InCallScreen extends Activity
 
         // Disable the status bar "window shade" the entire time we're on
         // the in-call screen.
-        NotificationMgr.getDefault().getStatusBarMgr().enableExpandedView(false);
+        // Change to subject to proximity sensor available or not - by cytown
+        NotificationMgr.getDefault().getStatusBarMgr().enableExpandedView(
+                PhoneUtils.isProximitySensorAvailable(app.getApplicationContext()));
 
         // Listen for broadcast intents that might affect the onscreen UI.
         registerReceiver(mReceiver, new IntentFilter(Intent.ACTION_HEADSET_PLUG));
@@ -754,7 +788,14 @@ public class InCallScreen extends Activity
                 // useless if there's no active call.  So bail out.
                 if (DBG) log("  ==> syncWithPhoneState failed; bailing out!");
                 dismissAllDialogs();
-                endInCallScreenSession();
+
+                // Force the InCallScreen to truly finish(), rather than just
+                // moving it to the back of the activity stack (which is what
+                // our finish() method usually does.)
+                // This is necessary to avoid an obscure scenario where the
+                // InCallScreen can get stuck in an inconsistent state, somehow
+                // causing a *subsequent* outgoing call to fail (bug 4172599).
+                endInCallScreenSession(true /* force a real finish() call */);
                 return;
             }
         } else if (phoneIsCdma) {
@@ -1037,7 +1078,25 @@ public class InCallScreen extends Activity
      */
     public void endInCallScreenSession() {
         if (DBG) log("endInCallScreenSession()...");
-        moveTaskToBack(true);
+        endInCallScreenSession(false);
+    }
+
+    /**
+     * Internal version of endInCallScreenSession().
+     *
+     * @param forceFinish If true, force the InCallScreen to
+     *        truly finish() rather than just calling moveTaskToBack().
+     *        @see finish()
+     */
+    private void endInCallScreenSession(boolean forceFinish) {
+        if (DBG) log("endInCallScreenSession(" + forceFinish + ")...");
+        if (forceFinish) {
+            Log.i(LOG_TAG, "endInCallScreenSession(): FORCING a call to super.finish()!");
+            super.finish();  // Call super.finish() rather than our own finish() method,
+                             // which actually just calls moveTaskToBack().
+        } else {
+            moveTaskToBack(true);
+        }
         setInCallScreenMode(InCallScreenMode.UNDEFINED);
     }
 
@@ -1800,21 +1859,21 @@ public class InCallScreen extends Activity
                         && (cause != Connection.DisconnectCause.LOCAL)
                         && (cause != Connection.DisconnectCause.INCOMING_REJECTED)) {
 
-                    if (mNeedShowCallLostDialog) {
-                        // Show the dialog now since the call that just failed was a retry.
+                if (mNeedShowCallLostDialog) {
+                    // Show the dialog now since the call that just failed was a retry.
+                    showCallLostDialog();
+                    mNeedShowCallLostDialog = false;
+                } else {
+                    if (autoretrySetting == AUTO_RETRY_OFF) {
+                        // Show the dialog for failed call if Auto Retry is OFF in Settings.
                         showCallLostDialog();
                         mNeedShowCallLostDialog = false;
                     } else {
-                        if (autoretrySetting == AUTO_RETRY_OFF) {
-                            // Show the dialog for failed call if Auto Retry is OFF in Settings.
-                            showCallLostDialog();
-                            mNeedShowCallLostDialog = false;
-                        } else {
-                            // Set the mNeedShowCallLostDialog flag now, so we'll know to show
-                            // the dialog if *this* call fails.
-                            mNeedShowCallLostDialog = true;
-                        }
+                        // Set the mNeedShowCallLostDialog flag now, so we'll know to show
+                        // the dialog if *this* call fails.
+                        mNeedShowCallLostDialog = true;
                     }
+                }
             }
         }
 
@@ -1878,6 +1937,10 @@ public class InCallScreen extends Activity
         // DELAYED_CLEANUP_AFTER_DISCONNECT message.
         mLastDisconnectCause = cause;
 
+        // Keep track of whether this call was user-initiated or not.
+        // (This affects where we take the user next; see delayedCleanupAfterDisconnect().)
+        mShowCallLogAfterDisconnect = !c.isIncoming() && CallFeaturesSetting.getInstance(android.preference.PreferenceManager.getDefaultSharedPreferences(this)).mReturnHome;
+
         // We bail out immediately (and *don't* display the "call ended"
         // state at all) in a couple of cases, including those where we
         // are waiting for the radio to finish powering up for an
@@ -1934,6 +1997,11 @@ public class InCallScreen extends Activity
                 // to not even try launching the call log if we know we're
                 // about to launch the EmergencyCallHandler instead.
             }
+            // Exit the in-call UI!
+            // (This is basically the same "delayed cleanup" we do below,
+            // just with zero delay.  Since the Phone is currently idle,
+            // this call is guaranteed to immediately finish this activity.)
+            delayedCleanupAfterDisconnect();
         } else {
             if (VDBG) log("- onDisconnect: delayed bailout...");
             // Stay on the in-call screen for now.  (Either the phone is
@@ -2386,7 +2454,7 @@ public class InCallScreen extends Activity
                 if (DBG) log("- updateScreen: OTA_STATUS_ACTIVATION");
                 if (otaUtils != null) {
                     if (DBG) log("- updateScreen: otaUtils is not null, "
-                                  + "call otaShowActivationScreen");
+                                 + "call otaShowActivationScreen");
                     otaUtils.otaShowActivateScreen();
                 }
             } else {
@@ -2670,7 +2738,7 @@ public class InCallScreen extends Activity
         switch (callStatus) {
             case PhoneUtils.CALL_STATUS_DIALED:
                 if (VDBG) log("placeCall: PhoneUtils.placeCall() succeeded for regular call '"
-                             + number + "'.");
+                              + number + "'.");
 
                 if (mInCallScreenMode == InCallScreenMode.OTA_NORMAL) {
                     app.cdmaOtaScreenState.otaScreenState =
@@ -2695,6 +2763,16 @@ public class InCallScreen extends Activity
                 // state right now to notice that specific transition in
                 // onPhoneStateChanged().
                 mDialer.clearDigits();
+
+                // Check for an obscure ECM-related scenario: If the phone
+                // is currently in ECM (Emergency callback mode) and we
+                // dial a non-emergency number, that automatically
+                // *cancels* ECM.  So warn the user about it.
+                // (See showExitingECMDialog() for more info.)
+                if (PhoneUtils.isPhoneInEcm(phone) && !isEmergencyNumber) {
+                    Log.i(LOG_TAG, "About to exit ECM because of an outgoing non-emergency call");
+                    showExitingECMDialog();
+                }
 
                 if (phone.getPhoneType() == Phone.PHONE_TYPE_CDMA) {
                     // Start the 2 second timer for 3 Way CallerInfo
@@ -2922,7 +3000,7 @@ public class InCallScreen extends Activity
 
                 if ((mLastDisconnectCause != Connection.DisconnectCause.INCOMING_MISSED)
                         && (mLastDisconnectCause != Connection.DisconnectCause.INCOMING_REJECTED)
-                        && !isPhoneStateRestricted()) {
+                        && !isPhoneStateRestricted() && mShowCallLogAfterDisconnect) {
                     if (VDBG) log("- Show Call Log after disconnect...");
                     final Intent intent = PhoneApp.createCallLogIntent();
                     intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
@@ -2941,6 +3019,39 @@ public class InCallScreen extends Activity
         }
     }
 
+    // View.OnLongClickListener implementation
+    public boolean onLongClick(View view) {
+        int id = view.getId();
+        if (id == R.id.endButton) {
+            Connection c = PhoneUtils.getConnection(mPhone, PhoneUtils.getCurrentCall(mPhone));
+            String number = c.getAddress();
+            // Confirm for addBlack
+            new AlertDialog.Builder(this)
+            .setIcon(R.drawable.ic_menu_add_black)
+            .setTitle(R.string.menu_addBlackList)
+            .setMessage("" + number)
+            .setPositiveButton(R.string.alert_dialog_yes, new DialogInterface.OnClickListener(){
+                public void onClick(DialogInterface dialog, int whichButton){
+                    addBlackAndHang();
+                }
+            })
+            .setNegativeButton(R.string.alert_dialog_no, null)
+            .create().show();
+            return true;
+        }
+        return false;
+    }
+
+    // Hangup and Add to BlackList
+    public void addBlackAndHang() {
+        if (VDBG) log("onClick: AddBlackList...");
+        //======
+        Connection c = PhoneUtils.getConnection(mPhone, PhoneUtils.getCurrentCall(mPhone));
+        String number = c.getAddress();
+        if (DBG) log("Add to Black List: " + number);
+        PhoneApp.getInstance().getSettings().addBlackList(number);
+        internalHangup();
+    }
 
     //
     // Callbacks for buttons / menu items.
@@ -3044,6 +3155,10 @@ public class InCallScreen extends Activity
             case R.id.menuEndCall:
                 if (VDBG) log("onClick: EndCall...");
                 internalHangup();
+                break;
+
+            case R.id.menuAddBlackList:
+                addBlackAndHang();
                 break;
 
             default:
@@ -3474,6 +3589,7 @@ public class InCallScreen extends Activity
      * out of the in-call UI when the user hits OK (or the BACK button.)
      */
     private void showGenericErrorDialog(int resid, boolean isStartupError) {
+        updateKeyguardPolicy(false);
         CharSequence msg = getResources().getText(resid);
         if (DBG) log("showGenericErrorDialog('" + msg + "')...");
 
@@ -3538,6 +3654,58 @@ public class InCallScreen extends Activity
         mCallLostDialog.show();
     }
 
+    /**
+     * Displays the "Exiting ECM" warning dialog.
+     *
+     * Background: If the phone is currently in ECM (Emergency callback
+     * mode) and we dial a non-emergency number, that automatically
+     * *cancels* ECM.  (That behavior comes from CdmaCallTracker.dial().)
+     * When that happens, we need to warn the user that they're no longer
+     * in ECM (bug 4207607.)
+     *
+     * So bring up a dialog explaining what's happening.  There's nothing
+     * for the user to do, by the way; we're simply providing an
+     * indication that they're exiting ECM.  We *could* use a Toast for
+     * this, but toasts are pretty easy to miss, so instead use a dialog
+     * with a single "OK" button.
+     *
+     * TODO: it's ugly that the code here has to make assumptions about
+     *   the behavior of the telephony layer (namely that dialing a
+     *   non-emergency number while in ECM causes us to exit ECM.)
+     *
+     *   Instead, this warning dialog should really be triggered by our
+     *   handler for the
+     *   TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED intent in
+     *   PhoneApp.java.  But that won't work until that intent also
+     *   includes a *reason* why we're exiting ECM, since we need to
+     *   display this dialog when exiting ECM because of an outgoing call,
+     *   but NOT if we're exiting ECM because the user manually turned it
+     *   off via the EmergencyCallbackModeExitDialog.
+     *
+     *   Or, it might be simpler to just have outgoing non-emergency calls
+     *   *not* cancel ECM.  That way the UI wouldn't have to do anything
+     *   special here.
+     */
+    private void showExitingECMDialog() {
+        Log.i(LOG_TAG, "showExitingECMDialog()...");
+
+        if (mExitingECMDialog != null) {
+            if (DBG) log("- DISMISSING mExitingECMDialog.");
+            mExitingECMDialog.dismiss();  // safe even if already dismissed
+            mExitingECMDialog = null;
+        }
+
+        // Ultra-simple AlertDialog with only an OK button:
+        mExitingECMDialog = new AlertDialog.Builder(this)
+                .setMessage(R.string.progress_dialog_exiting_ecm)
+                .setPositiveButton(R.string.ok, null)
+                .setCancelable(true)
+                .create();
+        mExitingECMDialog.getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+        mExitingECMDialog.show();
+    }
+
     private void bailOutAfterErrorDialog() {
         if (mGenericErrorDialog != null) {
             if (DBG) log("bailOutAfterErrorDialog: DISMISSING mGenericErrorDialog.");
@@ -3545,7 +3713,14 @@ public class InCallScreen extends Activity
             mGenericErrorDialog = null;
         }
         if (DBG) log("bailOutAfterErrorDialog(): end InCallScreen session...");
-        endInCallScreenSession();
+
+        // Force the InCallScreen to truly finish(), rather than just
+        // moving it to the back of the activity stack (which is what
+        // our finish() method usually does.)
+        // This is necessary to avoid an obscure scenario where the
+        // InCallScreen can get stuck in an inconsistent state, somehow
+        // causing a *subsequent* outgoing call to fail (bug 4172599).
+        endInCallScreenSession(true /* force a real finish() call */);
     }
 
     /**
@@ -3606,6 +3781,11 @@ public class InCallScreen extends Activity
             if (DBG) log("- DISMISSING mPausePromptDialog.");
             mPausePromptDialog.dismiss();
             mPausePromptDialog = null;
+        }
+        if (mExitingECMDialog != null) {
+            if (DBG) log("- DISMISSING mExitingECMDialog.");
+            mExitingECMDialog.dismiss();
+            mExitingECMDialog = null;
         }
     }
 
@@ -4391,11 +4571,11 @@ public class InCallScreen extends Activity
                     SystemClock.elapsedRealtime() - mBluetoothConnectionRequestTime;
             if (timeSinceRequest < 5000 /* 5 seconds */) {
                 if (VDBG) log("isBluetoothAudioConnectedOrPending: ==> TRUE (requested "
-                             + timeSinceRequest + " msec ago)");
+                              + timeSinceRequest + " msec ago)");
                 return true;
             } else {
                 if (VDBG) log("isBluetoothAudioConnectedOrPending: ==> FALSE (request too old: "
-                             + timeSinceRequest + " msec ago)");
+                              + timeSinceRequest + " msec ago)");
                 mBluetoothConnectionPending = false;
                 return false;
             }
@@ -4798,13 +4978,13 @@ public class InCallScreen extends Activity
         return (mInCallScreenMode == InCallScreenMode.OTA_ENDED);
     }
 
-   /**
-    * Checks to see if the current call is a CDMA OTA Call, based on the
-    * action of the specified intent and OTA Screen state information.
-    *
-    * The OTA call is a CDMA-specific concept, so this method will
-    * always return false on a GSM phone.
-    */
+    /**
+     * Checks to see if the current call is a CDMA OTA Call, based on the
+     * action of the specified intent and OTA Screen state information.
+     *
+     * The OTA call is a CDMA-specific concept, so this method will
+     * always return false on a GSM phone.
+     */
     private boolean checkIsOtaCall(Intent intent) {
         if (VDBG) log("checkIsOtaCall...");
 
@@ -5045,7 +5225,7 @@ public class InCallScreen extends Activity
      *        or 0 if no hint should be visible.
      * @param hintColorResId resource ID for the color of the hint text
      */
-    /* package */ void updateSlidingTabHint(int hintTextResId, int hintColorResId) {
+    /* package */ void updateRotarySelectorHint(int hintTextResId, int hintColorResId) {
         if (VDBG) log("updateRotarySelectorHint(" + hintTextResId + ")...");
         if (mCallCard != null) {
             mCallCard.setRotarySelectorHint(hintTextResId, hintColorResId);
@@ -5111,4 +5291,74 @@ public class InCallScreen extends Activity
     private void log(String msg) {
         Log.d(LOG_TAG, msg);
     }
+   /**
+    * Adding Trackball Answer & Hangup -- Nushio
+    */
+
+   @Override
+   public boolean onTrackballEvent(MotionEvent event) {
+     mSettings = CallFeaturesSetting.getInstance(PreferenceManager.getDefaultSharedPreferences(this));
+     long realTime = android.os.SystemClock.elapsedRealtime();
+     long downTime = event.getDownTime();
+     if(mCM.hasActiveRingingCall() && !mSettings.mTrackAnswer.equals("-1")){ //Call is ringing and Trackball Answer is on
+	     if(event.getAction() == MotionEvent.ACTION_DOWN){
+	       if(mSettings.mTrackAnswer.equals("dt")){
+		 //Double Tap Code taken from MetalHead's Double-Tap-to-skip-song.
+		 long timeBetweenHits;
+		 if (mTrackballHitTime == null)
+		   mTrackballHitTime = realTime;
+		 else{
+		   if (realTime > mTrackballHitTime)
+		     timeBetweenHits = realTime - mTrackballHitTime; // System clock rolled over
+		   else
+		     timeBetweenHits = realTime + (Long.MAX_VALUE - mTrackballHitTime); // Time to Answer Call
+
+		   if (timeBetweenHits < 400) { //400 being double-tap duration distance
+		     internalAnswerCall();
+		   }
+		   mTrackballHitTime = null;
+		 }
+	       }
+	     }else if(event.getAction() == MotionEvent.ACTION_UP){
+	       int delay = -1;
+	       try{
+		 delay = Integer.parseInt(mSettings.mTrackAnswer);
+	       }catch(Exception e){}
+	       if(delay > -1){
+		 if(realTime > (downTime + delay))
+		   internalAnswerCall();
+	       }
+	     }
+     }else if(mCM.hasActiveFgCall()  && !mSettings.mTrackHangup.equals("-1")){ //We're in a call and trackbal hangup is enabled
+	if(event.getAction() == MotionEvent.ACTION_DOWN){
+	       if(mSettings.mTrackAnswer.equals("dt")){
+		 //Double Tap Code taken from MetalHead's Double-Tap-to-skip-song.
+		 long timeBetweenHits;
+		 if (mTrackballHitTime == null)
+		   mTrackballHitTime = realTime;
+		 else{
+		   if (realTime > mTrackballHitTime)
+		     timeBetweenHits = realTime - mTrackballHitTime; // System clock rolled over
+		   else
+		     timeBetweenHits = realTime + (Long.MAX_VALUE - mTrackballHitTime); // Time to Answer Call
+
+		   if (timeBetweenHits < 400) { //400 being double-tap duration distance
+		     internalHangup();
+		   }
+		   mTrackballHitTime = null;
+		 }
+	       }
+	     }else if(event.getAction() == MotionEvent.ACTION_UP){
+	       int delay = -1;
+	       try{
+		 delay = Integer.parseInt(mSettings.mTrackAnswer);
+	       }catch(Exception e){}
+	       if(delay > -1){
+		 if(realTime > (downTime + delay))
+		   internalHangup();
+	       }
+	     }
+     }
+     return super.onTrackballEvent(event);
+   }
 }

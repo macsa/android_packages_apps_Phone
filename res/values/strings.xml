@@ -284,7 +284,7 @@
     <!-- Call forwarding settings screen, setting summary text when forwarding all calls -->
     <string name="sum_cfu_enabled_indicator">Forwarding all calls</string>
     <!-- Call forwarding settings screen, setting summary text the Always forward is set -->
-    <string name="sum_cfu_enabled">Forwarding all calls to {0}</string>
+    <string name="sum_cfu_enabled">Forwarding all calls to <xliff:g id="phonenumber" example="555-1212">{0}</xliff:g></string>
     <!-- Call forwarding settings screen, Always forward is enabled but the number is unavailable -->
     <string name="sum_cfu_enabled_no_number">Number is unavailable</string>
     <!-- Call forwarding settings screen, setting summary text when Always forward is disabled -->
@@ -295,7 +295,7 @@
     <!-- Call forwarding dialog box, text field label -->
     <string name="messageCFB">Number when busy</string>
     <!-- Call forwarding settings screen, setting summary text when forwarding to specific number when busy -->
-    <string name="sum_cfb_enabled">Forwarding to {0}</string>
+    <string name="sum_cfb_enabled">Forwarding to <xliff:g id="phonenumber" example="555-1212">{0}</xliff:g></string>
     <!-- Call forwarding settings screen, setting summary text when forwarding when busy is disabled -->
     <string name="sum_cfb_disabled">Disabled</string>
     <!-- Error message displayed after failing to disable forwarding calls when the phone is busy -->
@@ -306,7 +306,7 @@
     <!-- Call forwarding dialog box, text field label -->
     <string name="messageCFNRy">Number when unanswered</string>
     <!-- Call forwarding settings screen, setting summary text when forwarding to a specific number when unanswered -->
-    <string name="sum_cfnry_enabled">Forwarding to {0}</string>
+    <string name="sum_cfnry_enabled">Forwarding to <xliff:g id="phonenumber" example="555-1212">{0}</xliff:g></string>
     <!-- Call forwarding settings screen, setting summary text when Forward when unanswered is disabled -->
     <string name="sum_cfnry_disabled">Disabled</string>
     <!-- Error message displayed after failing to disable forwarding calls when the phone does not answer -->
@@ -317,7 +317,7 @@
     <!-- Call forwarding dialog box, text field label -->
     <string name="messageCFNRc">Number when unreachable</string>
     <!-- Call forwarding settings screen, setting summary text when forwarding to a specific number when unreachable-->
-    <string name="sum_cfnrc_enabled">Forwarding to {0}</string>
+    <string name="sum_cfnrc_enabled">Forwarding to <xliff:g id="phonenumber" example="555-1212">{0}</xliff:g></string>
     <!-- Call forwarding settings screen, setting summary text when Forward when unreachable is disabled -->
     <string name="sum_cfnrc_disabled">Disabled</string>
     <!-- Error message displayed after failing to disable forwarding calls when the phone is unreachable -->
@@ -360,7 +360,7 @@
         <item>Show number</item>
     </string-array>
     <!-- Phone settings: Internal keys used for Caller ID preference values.  DO NOT TRANSLATE. -->
-    <string-array name="clir_values">
+    <string-array name="clir_values" translatable="false">
         <!-- Phone settings: Internal key used for Caller ID preference values.  DO NOT TRANSLATE. -->
         <item><xliff:g>DEFAULT</xliff:g></item>
         <!-- Phone settings: Internal key used for Caller ID preference values.  DO NOT TRANSLATE. -->
@@ -445,7 +445,7 @@
     <!-- Mobile network settings screen, setting summary text when check box is not selected (explains what selecting it would do) -->
     <string name="data_enable_summary">Enable data access over Mobile network</string>
     <!-- Mobile network settings screen, setting check box name -->
-    <string name="roaming">Data roaming</string>
+    <string name="roaming">International data roaming</string>
     <!-- Mobile network settings screen, setting summary text when check box is selected -->
     <string name="roaming_enable">Connect to data services when roaming</string>
     <!-- Mobile network settings screen, setting summary text when check box is clear -->
@@ -636,7 +636,7 @@
         <!-- System select dialog screen, setting option name -->
         <item>Home only</item>
         <!-- Remove the following option "Affiliated Networks" from the option list -->
-        <!-- <item>Affiliated Networks</item> -->
+        <item>Affiliated Networks</item>
         <!-- System select dialog screen, setting option name -->
         <item>Automatic</item>
     </string-array>
@@ -644,7 +644,7 @@
         <!-- Do not translate. -->
         <item>"0"</item>
         <!-- Remove the following value "1" which corresponds to "Affiliated Networks" above -->
-        <!-- <item>"1"</item>  -->
+        <item>"1"</item>
         <!-- Do not translate. -->
         <item>"2"</item>
     </string-array>
@@ -845,11 +845,11 @@
     <string name="caller_manage_manage_done_text">Back to call</string>
 
     <!-- Used in FakePhoneActivity test code.  DO NOT TRANSLATE. -->
-    <string name="fake_phone_activity_phoneNumber_text">(650) 555-1234</string>
+    <string name="fake_phone_activity_phoneNumber_text" translatable="false">(650) 555-1234</string>
     <!-- Used in FakePhoneActivity test code.  DO NOT TRANSLATE. -->
-    <string name="fake_phone_activity_infoText_text">Incoming phone number</string>
+    <string name="fake_phone_activity_infoText_text" translatable="false">Incoming phone number</string>
     <!-- Used in FakePhoneActivity test code.  DO NOT TRANSLATE. -->
-    <string name="fake_phone_activity_placeCall_text">Fake Incoming Call</string>
+    <string name="fake_phone_activity_placeCall_text" translatable="false">Fake Incoming Call</string>
 
     <!-- Button label on "SIM Missing" screen -->
     <string name="sim_missing_continueView_text">Continue without SIM card</string>
@@ -887,6 +887,9 @@
     <string name="card_title_hanging_up">Hanging up</string>
     <!-- In-call screen: status label for a call that's in CDMA flash mode -->
     <string name="card_title_in_call">In call</string>
+    <!-- In-call screen: special status label that shows your own phone
+         number during emergency callback mode (ECM) [CHAR LIMIT=30] -->
+    <string name="card_title_my_phone_number">My number is <xliff:g id="my_phone_number">%s</xliff:g></string>
 
     <!-- Notification strings -->
     <!-- Missed call notification label, used when there's exactly one missed call -->
@@ -1065,7 +1068,7 @@
       <item>Long</item>
     </string-array>
     <!-- Do not translate. -->
-    <string-array name="dtmf_tone_values">
+    <string-array name="dtmf_tone_values" translatable="false">
        <item>0</item>
        <item>1</item>
     </string-array>
@@ -1167,7 +1170,7 @@
 
     <!-- For incoming calls, this is a string we can get from a CDMA network instead of
          the actual phone number, to indicate there's no number present.  DO NOT TRANSLATE. -->
-    <string name="absent_num">ABSENT NUMBER</string>
+    <string name="absent_num" translatable="false">ABSENT NUMBER</string>
 
     <!-- Voicemail dialog title -->
     <string name="voicemail_settings">Voicemail settings</string>
@@ -1199,10 +1202,12 @@
     <eat-comment />
     <!-- Incoming call hint: drag the tab right to answer -->
     <string name="slide_to_answer">Drag right to answer</string>
+    <string name="rotate_to_answer">Rotate right to answer</string>
     <!-- Incoming call hint: drag the tab left to silence ringer -->
     <string name="slide_to_silence">Drag left to silence ringer</string>
     <!-- Incoming call hint: drag the tab left to decline the incoming call -->
     <string name="slide_to_decline">Drag left to decline</string>
+    <string name="rotate_to_decline">Rotate left to decline</string>
     <!-- Incoming call hint: drag the tab right to answer and hold the active call -->
     <string name="slide_to_answer_and_hold">Drag right to answer and\nhold active call</string>
     <!-- Incoming call hint: drag the tab right to answer and end the active call -->
@@ -1214,6 +1219,39 @@
     <string name="slide_to_answer_hint">Answer</string>
     <!-- Incoming call hint shown on tab (must be kept very short): decline incoming call -->
     <string name="slide_to_decline_hint">Decline</string>
+    <!-- added by cytown@gmail.com -->
+    <string name="notification_ongoing_calling_format">Calling (<xliff:g id="duration">%s</xliff:g>)
+    </string>
+    <string name="advanced_setting">Advanced Settings V.30.1</string>
+    <string name="vibrate_outgoing">Vibrate on answer</string>
+    <string name="vibrate_outgoing_sum">Vibrate when a call is answered</string>
+    <string name="vibrate_45">Vibrate every 45 seconds</string>
+    <string name="vibrate_45_sum">Vibrate every 45 seconds during outgoing calls</string>
+    <string name="vibrate_hangup">Vibrate on hangup</string>
+    <string name="vibrate_hangup_sum">Vibrate when a call has ended</string>
+    <string name="screen_awake">Keep screen awake</string>
+    <string name="screen_awake_sum">Screen will stay awake longer than normal while in-call</string>
+    <string name="always_proximity">Always use proximity</string>
+    <string name="always_proximity_sum">Enable to let the proximity sensor lock the screen even if phone is horizontal.</string>
+    <string name="led_notify_call">Missed call LED notify</string>
+    <string name="led_notify_call_sum">LED will blink when call is missed</string>
+    <string name="led_show_organ">"Show nick/organization"</string>
+    <string name="led_show_organ_sum">"Nickname/Organization will be shown on in-call screen."</string>
+    <string name="vibrate_call_waiting">Vibrate call waiting</string>
+    <string name="vibrate_call_waiting_sum">Vibrate on call waiting</string>
+    <string name="return_home">Always back to call log</string>
+    <string name="return_home_sum">Force return to call log screen after a call ends.</string>
+    <string name="menu_addBlackList">Add to blacklist</string>
+    <string name="black_list">Blacklist</string>
+    <string name="black_list_sum">Incoming call in black list will be rejected.</string>
+    <string name="add_black">Add phone number</string>
+    <string name="remove_black">Remove %s from List</string>
+    <string name="turn_silence">Turn over silence</string>
+    <string name="turn_silence_sum">Turn over to silence ring</string>
+    <string name="left_hand">Left-hand mode</string>
+    <string name="left_hand_sum">Use left hand hold the phone, need a reboot to effect.</string>
+    <string name="set_force_touch">In-call touch UI</string>
+    <string name="set_force_touch_sum">Force in-call touch UI without proximity sensor</string>
 
     <!-- Use this as a default to describe the contact photo; currently for screen readers through accessibility. -->
     <string name="contactPhoto">contact photo</string>
@@ -1221,6 +1259,11 @@
     <string name="goPrivate">go private</string>
     <!--  Use this to describe the select contact button in EditPhoneNumberPreference; currently for screen readers through accessibility. -->
     <string name="selectContact">select contact</string>
+
+    <!-- Title displayed for the checkbox to (en|dis)able voicemail notifications. [CHAR LIMIT=NONE] -->
+    <string name="voicemail_notification_title">Voicemail notifications</string>
+    <!-- Summary for the checkbox to (en|dis)able voicemail notifications. [CHAR LIMIT=NONE] -->
+    <string name="voicemail_notification_summary">Enable notifications for (new) voicemails</string>
 
 
     <!-- Start of SIP related strings defined from here. -->
@@ -1365,6 +1408,8 @@
     <string name="send_keepalive_title">Send keep-alive</string>
     <!-- Text of the keepalive preference summary. [CHAR LIMIT=NONE] -->
     <string name="send_keepalive_summary">Send SIP keep-alive messages</string>
+    <!-- Text of the user agent preference. [CHAR LIMIT=NONE] -->
+    <string name="user_agent_title">SIP User-Agent</string>
     <!-- Text of the auto registration preference. [CHAR LIMIT=NONE] -->
     <string name="auto_registration_title">Auto-registration</string>
     <!-- Text of the auto registration preference summary. [CHAR LIMIT=NONE] -->
@@ -1429,6 +1474,7 @@
     <string translatable="false" name="password">Password</string>
     <string translatable="false" name="display_name">DisplayName</string>
     <string translatable="false" name="proxy_address">ProxyAddress</string>
+    <string translatable="false" name="user_agent">UserAgent</string>
     <string translatable="false" name="port">Port</string>
     <string translatable="false" name="transport">Protocol</string>
     <string translatable="false" name="send_keepalive">SendKeepAlive</string>
@@ -1437,6 +1483,40 @@
     <string translatable="false" name="advanced_settings_container">advanced settings container</string>
     <string translatable="false" name="auth_username">AuthUserName</string>
     <!-- End of SIP settings related strings -->
+
     <string name="per_change_mobile_network">Change network (2G/3G)</string>
     <string name="per_change_mobile_network_desc">Application with this permission can, at any time, change between 2G Data and 3G data. 3G is faster, consumes more batery, and can also cost you more money.</string>
+    <string name="phone_number_label">My phone number</string>
+    <string name="phone_number_summary">Set the phone number for this device</string>
+
+    <!-- TrackBall Answer - Added by Nushio -->
+    <string name="trackball_answer">Trackball Answer</string>  
+    <string name="trackball_answer_sum">Press the Trackball to Answer the incoming phone call.</string>
+    <string-array name="trackballLabels">
+       <item>Disabled</item> 
+       <item>Tap to Answer</item>
+       <item>Double Tap to Answer</item>    
+    </string-array>  
+    <string-array name="trackballValues" translatable="false">
+       <item>-1</item>
+       <item>350</item>
+       <item>dt</item> 
+    </string-array>
+    <!-- TrackBall Hangup - Added by Nushio -->
+    <string name="trackball_hangup">Trackball Hangup</string>  
+    <string name="trackball_hangup_sum">Press the Trackball to Hang up the current call.</string>
+    <string-array name="trackballHangupLabels">
+       <item>Disabled</item> 
+       <item>Tap to Hang up</item>
+       <item>Double Tap to Hang up</item>    
+    </string-array> 
+
+    <!-- Phone goggles -->
+    <string name="toast_phone_goggles">You are not allowed to make phone calls at this time. Please try again later.</string>
+    <string name="dialog_phone_goggles_title">Call blocked</string>
+    <string name="dialog_phone_goggles_title_unlocked">Call authorized</string>
+    <string name="dialog_phone_goggles_content">Making a phone call may not be wise at this time. Are you sure you want to continue?</string>
+    <string name="dialog_phone_goggles_unauthorized">Making a phone call may not be wise at this time.</string>
+    <string name="dialog_phone_goggles_ok">Call</string>
+    <string name="dialog_phone_goggles_cancel">Cancel</string>
 </resources>

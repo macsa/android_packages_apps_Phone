@@ -22,6 +22,8 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.pim.ContactsAsyncHelper;
 import android.provider.ContactsContract.Contacts;
+import android.provider.ContactsContract.RawContacts;
+import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.AttributeSet;
@@ -43,7 +45,9 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.CallManager;
 
 import java.util.List;
+import java.util.ArrayList;
 
+import android.provider.ContactsContract;
 
 /**
  * "Call card" UI element: the in-call screen contains a tiled layout of call
@@ -114,6 +118,10 @@ public class CallCard extends FrameLayout
     // Cached DisplayMetrics density.
     private float mDensity;
 
+    // add by cytown
+    private CallFeaturesSetting mSettings;
+    private TextView mOrganization;
+
     public CallCard(Context context, AttributeSet attrs) {
         super(context, attrs);
 
@@ -129,6 +137,9 @@ public class CallCard extends FrameLayout
                 true);
 
         mApplication = PhoneApp.getInstance();
+
+        // add by cytown
+        mSettings = CallFeaturesSetting.getInstance(android.preference.PreferenceManager.getDefaultSharedPreferences(context));
 
         mCallTime = new CallTime(this);
 
@@ -188,6 +199,7 @@ public class CallCard extends FrameLayout
         mLabel = (TextView) findViewById(R.id.label);
         mCallTypeLabel = (TextView) findViewById(R.id.callTypeLabel);
         mSocialStatus = (TextView) findViewById(R.id.socialStatus);
+        mOrganization = (TextView) findViewById(R.id.organization);
 
         // "Other call" info area
         mSecondaryCallName = (TextView) findViewById(R.id.secondaryCallName);
@@ -610,6 +622,7 @@ public class CallCard extends FrameLayout
     private void updateCardTitleWidgets(Phone phone, Call call) {
         if (DBG) log("updateCardTitleWidgets(call " + call + ")...");
         Call.State state = call.getState();
+        Context context = getContext();
 
         // TODO: Still need clearer spec on exactly how title *and* status get
         // set in all states.  (Then, given that info, refactor the code
@@ -622,7 +635,7 @@ public class CallCard extends FrameLayout
             if (!PhoneApp.getInstance().notifier.getIsCdmaRedialCall()) {
                 cardTitle = getTitleForCallCard(call);  // Normal "foreground" call card
             } else {
-                cardTitle = getContext().getString(R.string.card_title_redialing);
+                cardTitle = context.getString(R.string.card_title_redialing);
             }
         } else if ((phoneType == Phone.PHONE_TYPE_GSM)
                 || (phoneType == Phone.PHONE_TYPE_SIP)) {
@@ -643,10 +656,16 @@ public class CallCard extends FrameLayout
                         ? mTextColorConnectedBluetooth : mTextColorConnected;
 
                 if (phoneType == Phone.PHONE_TYPE_CDMA) {
-                    // Check if the "Dialing" 3Way call needs to be displayed
-                    // as the Foreground Call state still remains ACTIVE
+                    // In normal operation we don't use an "upper title" at all,
+                    // except for a couple of special cases:
                     if (mApplication.cdmaPhoneCallState.IsThreeWayCallOrigStateDialing()) {
-                        // Use the "upper title":
+                        // Display "Dialing" while dialing a 3Way call, even
+                        // though the foreground call state is still ACTIVE.
+                        setUpperTitle(cardTitle, mTextColorDefaultPrimary, state);
+                    } else if (PhoneUtils.isPhoneInEcm(phone)) {
+                        // In emergency callback mode (ECM), use a special title
+                        // that shows your own phone number.
+                        cardTitle = getECMCardTitle(context, phone);
                         setUpperTitle(cardTitle, mTextColorDefaultPrimary, state);
                     } else {
                         // Normal "ongoing call" state; don't use any "title" at all.
@@ -748,7 +767,6 @@ public class CallCard extends FrameLayout
         String retVal = null;
         Call.State state = call.getState();
         Context context = getContext();
-        int resId;
 
         if (DBG) log("- getTitleForCallCard(Call " + call + ")...");
 
@@ -1060,6 +1078,8 @@ public class CallCard extends FrameLayout
         String socialStatusText = null;
         Drawable socialStatusBadge = null;
 
+        boolean updateName = false;
+
         if (info != null) {
             // It appears that there is a small change in behaviour with the
             // PhoneUtils' startGetCallerInfo whereby if we query with an
@@ -1119,6 +1139,8 @@ public class CallCard extends FrameLayout
                     displayName = info.name;
                     displayNumber = number;
                     label = info.phoneLabel;
+                    // add by cytown for show organization
+                    updateName = true;
                 }
             }
             personUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, info.person_id);
@@ -1130,8 +1152,15 @@ public class CallCard extends FrameLayout
 
         if (call.isGeneric()) {
             mName.setText(R.string.card_title_in_call);
+            mOrganization.setVisibility(View.GONE);
         } else {
             mName.setText(displayName);
+            if (DBG) log("show ======= " + updateName + ":" + mSettings.mShowOrgan);
+            if (updateName && mSettings.mShowOrgan) {
+                updateOrganization(info.person_id);
+            } else {
+                mOrganization.setVisibility(View.GONE);
+            }
         }
         mName.setVisibility(View.VISIBLE);
 
@@ -1177,6 +1206,38 @@ public class CallCard extends FrameLayout
         // Other text fields:
         updateCallTypeLabel(call);
         updateSocialStatus(socialStatusText, socialStatusBadge, call);  // Currently unused
+    }
+
+    private void updateOrganization(final long person_id) {
+        android.database.Cursor c = CallCard.this.getContext().getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                new String[] { ContactsContract.CommonDataKinds.Organization.COMPANY, 
+                    ContactsContract.CommonDataKinds.Nickname.NAME },
+                ContactsContract.Data.CONTACT_ID + " = ? and (" + ContactsContract.Data.MIMETYPE + " = '" +
+                ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE + "' or " + 
+                ContactsContract.Data.MIMETYPE + " = '" + ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE + "' )", 
+                new String[] { person_id + "" },
+                null);
+        if (c != null) {
+            if (c.moveToNext()) {
+                try {
+                    // we have found an organization.  set the organization name and exit loop
+                    String organ = c.getString(1);
+                    if (TextUtils.isEmpty(organ)) {
+                        organ = c.getString(0);
+                    }
+                    if (!TextUtils.isEmpty(organ)) {
+                        mOrganization.setText(organ);
+                        mOrganization.setVisibility(View.VISIBLE);
+                        mOrganization.invalidate();
+                    } else {
+                        mOrganization.setVisibility(View.GONE);
+                    }
+                } catch (Exception e) {}
+            } else {
+                mOrganization.setVisibility(View.GONE);
+            }
+            c.close();
+        }
     }
 
     private String getPresentationString(int presentation) {
@@ -1452,6 +1513,22 @@ public class CallCard extends FrameLayout
      */
     private void clearUpperTitle() {
         setUpperTitle("", 0, Call.State.IDLE);  // Use dummy values for "color" and "state"
+    }
+
+    /**
+     * Returns the special card title used in emergency callback mode (ECM),
+     * which shows your own phone number.
+     */
+    private String getECMCardTitle(Context context, Phone phone) {
+        String rawNumber = phone.getLine1Number();  // may be null or empty
+        String formattedNumber;
+        if (!TextUtils.isEmpty(rawNumber)) {
+            formattedNumber = PhoneNumberUtils.formatNumber(rawNumber);
+        } else {
+            formattedNumber = context.getString(R.string.unknown);
+        }
+        String titleFormat = context.getString(R.string.card_title_my_phone_number);
+        return String.format(titleFormat, formattedNumber);
     }
 
     /**

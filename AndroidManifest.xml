@@ -87,11 +87,20 @@
                  android:persistent="true"
                  android:label="@string/dialerIconLabel"
                  android:icon="@drawable/ic_launcher_phone">
-            <provider android:name="IccProvider"
-                      android:authorities="icc"
-                      android:multiprocess="true"
-                      android:readPermission="android.permission.READ_CONTACTS"
-                      android:writePermission="android.permission.WRITE_CONTACTS" />
+
+        <provider android:name="IccProvider"
+                  android:authorities="icc"
+                  android:multiprocess="true"
+                  android:readPermission="android.permission.READ_CONTACTS"
+                  android:writePermission="android.permission.WRITE_CONTACTS" />
+
+        <!-- Workaround for non saved phone number -->
+        <receiver android:name=".MyPhoneNumber">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.AIRPLANE_MODE" />
+            </intent-filter>
+        </receiver>
 
         <!-- Dialer UI that only allows emergency calls -->
         <activity android:name="EmergencyDialer"
@@ -150,6 +159,9 @@
                 <data android:mimeType="vnd.android.cursor.item/phone" />
                 <data android:mimeType="vnd.android.cursor.item/phone_v2" />
                 <data android:mimeType="vnd.android.cursor.item/person" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_GOGGLES_COMMUNICATION" />
             </intent-filter>
         </activity>
 
@@ -439,6 +451,7 @@
         <activity android:name=".SipCallOptionHandler"
                 android:configChanges="orientation|keyboardHidden">
         </activity>
+
         <receiver android:name="com.android.phone.PhoneToggler" android:permission="com.android.phone.CHANGE_NETWORK_MODE">
             <intent-filter>
                 <action android:name="com.android.internal.telephony.REQUEST_NETWORK_MODE" />
@@ -454,6 +467,7 @@
   			</intent-filter>
  		</receiver>-->
     </application>
+
       <permission android:name="com.android.phone.CHANGE_NETWORK_MODE"
         android:label="@string/per_change_mobile_network"
         android:description="@string/per_change_mobile_network_desc"
